@@ -13,6 +13,7 @@ body {
 }
 
 .game-container {
+    position: relative;
     background: white;
     padding: 24px;
     border-radius: 20px;
@@ -25,6 +26,20 @@ body {
 h1 {
     color: #ff6b6b;
     margin-top: 0;
+}
+
+.sound-toggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    margin: 0;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    background-color: #70a1ff;
+}
+
+.sound-toggle:hover {
+    background-color: #4b86e8;
 }
 
 .status {
@@ -59,11 +74,26 @@ h1 {
     color: #ff4757;
 }
 
+.finger-hint {
+    font-size: 1.6rem;
+    color: #ff8e8e;
+    line-height: 1.2;
+    min-height: 2rem;
+}
+
 .progress {
     font-size: 2.2rem;
     font-weight: bold;
     color: #2ed573;
     line-height: 1.8;
+}
+
+.stars {
+    font-size: 0.95rem;
+    color: #ffb800;
+    letter-spacing: 2px;
+    min-height: 1.2rem;
+    word-break: break-all;
 }
 
 .video-wrapper {
@@ -84,6 +114,17 @@ video {
     display: block;
 }
 
+/* 手部骨架圖層：跟 video 一樣鏡像翻轉，所以座標可以直接用 MediaPipe 的原始座標 */
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(-1);
+    pointer-events: none;
+}
+
 .detected-overlay {
     position: absolute;
     bottom: 10px;
@@ -94,6 +135,26 @@ video {
     padding: 6px 16px;
     border-radius: 20px;
     font-size: 1.1rem;
+}
+
+.legend {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 14px;
+    font-size: 1rem;
+    color: #666;
+}
+
+.legend span {
+    background: #f6f9ff;
+    border-radius: 10px;
+    padding: 4px 10px;
+}
+
+.legend b {
+    color: #ff4757;
 }
 
 /* 勝利彈窗 */
@@ -120,6 +181,7 @@ video {
     font-size: 2rem;
     color: #ff4757;
     font-weight: bold;
+    max-width: 90%;
 }
 
 button {
