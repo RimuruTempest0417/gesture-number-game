@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手勢數字小遊戲</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- MediaPipe Hands CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <div class="game-container">
+        <h1>✌️ 睇手勢比數字 ✌️</h1>
+
+        <div id="game-status" class="status">載入鏡頭與模型中...</div>
+
+        <div class="display-box">
+            <div class="target-card">
+                <span>目標數字</span>
+                <div id="target-number" class="number">-</div>
+            </div>
+
+            <div class="target-card">
+                <span>進度</span>
+                <div id="progress" class="progress">0 / 10</div>
+            </div>
+        </div>
+
+        <div class="video-wrapper">
+            <video id="webcam" autoplay playsinline></video>
+            <div id="detected-result" class="detected-overlay">偵測中...</div>
+        </div>
+
+        <div id="victory-modal" class="modal hidden">
+            <div class="modal-content">
+                🎉 恭喜通關！你太棒了！ 🎉
+                <br>
+                <button onclick="restartGame()">再玩一次</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
