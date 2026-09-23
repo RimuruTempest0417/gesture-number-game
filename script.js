@@ -11,23 +11,37 @@ const starsEl = document.getElementById('stars');
 const soundToggleEl = document.getElementById('sound-toggle');
 
 let currentTarget = 0;
+let lastTarget = null; // 唔想連續兩題出同一個數字
 let score = 0;
 const TOTAL_QUESTIONS = 10;
+const MIN_TARGET = 1;   // 1 ~ 10
+const MAX_TARGET = 10;
 let isCooldown = false; // 避免比對成功後重複觸發
 
-// 每個數字對應的示範手勢，讓小朋友一眼睇到要伸幾隻手指
+// 每個數字對應的示範手勢（6 以上要用兩隻手），讓小朋友一眼睇到要伸幾隻手指
 const FINGER_HINTS = {
-    0: '✊',
     1: '☝️',
     2: '✌️',
     3: '🤟',
     4: '🖖',
-    5: '🖐️'
+    5: '🖐️',
+    6: '🖐️☝️',
+    7: '🖐️✌️',
+    8: '🖐️🤟',
+    9: '🖐️🖖',
+    10: '🖐️🖐️'
 };
 
-// 生成 0 ~ 5 的隨機個位數（適合作為單手手勢）
+// 生成 1 ~ 10 的隨機數字（兩隻手加起來最多 10 隻手指）
 function getRandomNumber() {
-    return Math.floor(Math.random() * 6);
+    let n = MIN_TARGET;
+    // 有限次重試避免連續出同一個數字；就算 random 固定都唔會變成無限迴圈
+    for (let i = 0; i < 12; i++) {
+        n = Math.floor(Math.random() * (MAX_TARGET - MIN_TARGET + 1)) + MIN_TARGET;
+        if (n !== lastTarget) break;
+    }
+    lastTarget = n;
+    return n;
 }
 
 function nextQuestion() {
@@ -44,15 +58,16 @@ function nextQuestion() {
     }
     currentTarget = getRandomNumber();
     targetNumEl.innerText = currentTarget;
-    fingerHintEl.innerText = `${FINGER_HINTS[currentTarget]} 伸出 ${currentTarget} 隻手指`;
+    fingerHintEl.innerText = `${FINGER_HINTS[currentTarget]} 兩隻手加埋 ${currentTarget} 隻手指`;
     progressEl.innerText = `${score} / ${TOTAL_QUESTIONS}`;
     starsEl.innerText = '⭐'.repeat(score);
 }
 
 function restartGame() {
     score = 0;
+    lastTarget = null;
     victoryModal.classList.add('hidden');
-    statusEl.innerText = "請根據提示比出手勢！";
+    statusEl.innerText = "兩隻手嘅手指加埋＝目標數字就過關！";
     nextQuestion();
     playRoundSound();
 }
@@ -68,6 +83,8 @@ const HAND_CONNECTIONS = [
     [0, 17]
 ];
 
+const HAND_COLORS = ['rgba(46, 213, 115, 0.95)', 'rgba(255, 184, 0, 0.95)'];
+
 function resizeOverlay(width, height) {
     if (overlayCanvas.width !== width || overlayCanvas.height !== height) {
         overlayCanvas.width = width;
@@ -75,15 +92,12 @@ function resizeOverlay(width, height) {
     }
 }
 
-// 用白色連線畫出手掌骨架，讓小朋友知道自己隻手被睇到
-function drawSkeleton(landmarks) {
+function drawOneHand(landmarks, color) {
     const w = overlayCanvas.width;
     const h = overlayCanvas.height;
-    if (!w || !h || !landmarks) return;
 
-    overlayCtx.clearRect(0, 0, w, h);
     overlayCtx.lineWidth = Math.max(2, w / 200);
-    overlayCtx.strokeStyle = 'rgba(46, 213, 115, 0.95)';
+    overlayCtx.strokeStyle = color;
     overlayCtx.lineCap = 'round';
 
     for (const [a, b] of HAND_CONNECTIONS) {
@@ -101,8 +115,26 @@ function drawSkeleton(landmarks) {
     }
 }
 
+// 用連線畫出手掌骨架（可以同時畫兩隻手），讓小朋友知道自己隻手被睇到
+function drawSkeletons(handsLandmarks) {
+    const w = overlayCanvas.width;
+    const h = overlayCanvas.height;
+    if (!w || !h || !handsLandmarks || handsLandmarks.length === 0) return;
+
+    overlayCtx.clearRect(0, 0, w, h);
+    handsLandmarks.forEach((landmarks, i) => {
+        drawOneHand(landmarks, HAND_COLORS[i % HAND_COLORS.length]);
+    });
+}
+
 function clearSkeleton() {
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+}
+
+// 畫面係鏡像翻轉的，所以用鏡像後的 x 位置判斷係邊隻手（小朋友的視角）
+function handSideLabel(landmarks) {
+    const mirroredX = 1 - landmarks[0].x;
+    return mirroredX < 0.5 ? '左手' : '右手';
 }
 
 /* ---------------- 音效 (Web Audio API，唔需要外部檔案) ---------------- */
@@ -199,45 +231,61 @@ const hands = new Hands({
 });
 
 hands.setOptions({
-    maxNumHands: 1, // 任意一隻手即可
+    maxNumHands: 2, // 要兩隻手加埋
     modelComplexity: 1,
     minDetectionConfidence: 0.7,
     minTrackingConfidence: 0.7
 });
 
 hands.onResults((results) => {
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        const landmarks = results.multiHandLandmarks[0];
-        const detectedFingers = countFingers(landmarks);
+    const allHands = results.multiHandLandmarks || [];
 
-        resizeOverlay(videoElement.videoWidth || 640, videoElement.videoHeight || 480);
-        drawSkeleton(landmarks);
-
-        detectedResultEl.innerText = `偵測到：${detectedFingers}`;
-
-        // 比對邏輯
-        if (!isCooldown && score < TOTAL_QUESTIONS) {
-            if (detectedFingers === currentTarget) {
-                isCooldown = true;
-                statusEl.innerText = "🎯 答對了！下一個...";
-                statusEl.style.color = "#2ed573";
-                playCorrectSound();
-                score++;
-                starsEl.innerText = '⭐'.repeat(score);
-
-                // 閃爍效果或延遲換題，給小朋友反應時間
-                setTimeout(() => {
-                    statusEl.innerText = "請根據提示比出手勢！";
-                    statusEl.style.color = "#4ba3e3";
-                    nextQuestion();
-                    playRoundSound();
-                    isCooldown = false;
-                }, 1000);
-            }
-        }
-    } else {
+    if (allHands.length === 0) {
         clearSkeleton();
-        detectedResultEl.innerText = "請將手放入畫面中";
+        detectedResultEl.innerText = "請將兩隻手放入畫面中";
+        return;
+    }
+
+    resizeOverlay(videoElement.videoWidth || 640, videoElement.videoHeight || 480);
+    drawSkeletons(allHands);
+
+    const counted = allHands.map(landmarks => ({
+        label: handSideLabel(landmarks),
+        fingers: countFingers(landmarks)
+    }));
+
+    // 兩隻手的手指數加埋就係答案
+    const detectedFingers = counted.reduce((sum, hand) => sum + hand.fingers, 0);
+
+    if (counted.length === 1) {
+        detectedResultEl.innerText = `${counted[0].label}：${counted[0].fingers} 隻手指`;
+    } else {
+        const left = counted.find(h => h.label === '左手');
+        const right = counted.find(h => h.label === '右手');
+        detectedResultEl.innerText = left && right
+            ? `左手 ${left.fingers} + 右手 ${right.fingers} = ${detectedFingers}`
+            : `偵測到：${detectedFingers} 隻手指`;
+    }
+
+    // 比對邏輯
+    if (!isCooldown && score < TOTAL_QUESTIONS) {
+        if (detectedFingers === currentTarget) {
+            isCooldown = true;
+            statusEl.innerText = "🎯 答對了！下一個...";
+            statusEl.style.color = "#2ed573";
+            playCorrectSound();
+            score++;
+            starsEl.innerText = '⭐'.repeat(score);
+
+            // 給小朋友反應時間再換題
+            setTimeout(() => {
+                statusEl.innerText = "兩隻手嘅手指加埋＝目標數字就過關！";
+                statusEl.style.color = "#4ba3e3";
+                nextQuestion();
+                playRoundSound();
+                isCooldown = false;
+            }, 1000);
+        }
     }
 });
 
@@ -253,7 +301,7 @@ const camera = new Camera(videoElement, {
 
 camera.start().then(() => {
     resizeOverlay(videoElement.videoWidth || 640, videoElement.videoHeight || 480);
-    statusEl.innerText = "請根據提示比出手勢！";
+    statusEl.innerText = "兩隻手嘅手指加埋＝目標數字就過關！";
     restartGame();
 }).catch(err => {
     statusEl.innerText = "無法開啟 webcam，請確認鏡頭權限！";

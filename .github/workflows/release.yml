@@ -1,0 +1,37 @@
+name: 自動發佈 Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出原始碼
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 打包遊戲檔案
+        run: |
+          set -euo pipefail
+          VERSION="v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          zip -r "gesture-number-game-${VERSION}.zip" index.html style.css script.js README.md
+          ls -la "gesture-number-game-${VERSION}.zip"
+
+      - name: 建立標籤並發佈 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$VERSION" \
+            "gesture-number-game-${VERSION}.zip" \
+            --title "$VERSION" \
+            --target "$GITHUB_SHA" \
+            --generate-notes
